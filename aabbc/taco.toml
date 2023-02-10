@@ -2,7 +2,7 @@
 name = "taco"
 version = "0.1.0"
 authors = ["loloolk", "methaballs"]
-clean = ["*.exe"]
 repo = "https://github.com/loloolk/taco"
+clean = ["*.exe"]
 
 [dependencies]

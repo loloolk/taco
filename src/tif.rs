@@ -123,7 +123,7 @@ pub async fn wrap(command: &Subcommand) -> i32 {
         get("repo"),
     ).await {
         Ok(_) => (),
-        Err(_) => panic!("Error: Could not post project to database.")
+        Err(x) => panic!("Error: {}", x)
     };
 
     0
@@ -188,7 +188,8 @@ pub fn help() -> i32 {
         <commands>:
         Init: Creates a new taco workplace in your current directory.
         New [Name]: Creates a new taco workplace in \"current_dir()/Name\".
-        Clean: Cleans taco workplace (?)
+        Clean: Removes all files specified in the \"clean\" array in the \"taco.toml\" file.
+        (can use wildcards [eg. *.o, main.*])
         
         Add [name]: Searches the package database for \"Name\" and adds it to your dependancies.
         Remove [Name]: Searches your dependancies for \"Name\" and removes it.
