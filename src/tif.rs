@@ -119,12 +119,16 @@ pub async fn wrap(command: Subcommand) -> i32 {
 
     let package = x.get("package").unwrap();
 
-    post_project_to_db(
+    match post_project_to_db(
         package.get("name").unwrap().as_str().unwrap().to_string(),
         package.get("version").unwrap().as_str().unwrap().to_string(),
         package.get("authors").unwrap().as_array().unwrap().get(0).unwrap().as_str().unwrap().to_string(),
         "a".to_string()
-    ).await;
+    ).await {
+        Ok(_) => (),
+        Err(_) => panic!("Error: Could not post project to database.")
+    };
+    
     0
 }
 
