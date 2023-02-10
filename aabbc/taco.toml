@@ -1,0 +1,7 @@
+[package]
+name = "taco"
+version = "0.1.0"
+authors = ["Taco Team"]
+clean = ["*.exe"]
+
+[dependencies]
