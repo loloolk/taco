@@ -17,7 +17,7 @@ pub async fn post_project_to_db(name: String, version: String, authors: Vec<Stri
     
     let doc = doc! { "name": name, "version": version, "authors": authors, "repo": repo };
 
-    collection.insert_one(doc, None).await.map(||())
+    collection.insert_one(doc, None).await.map(|_|())
 }
 
 pub async fn get_project_from_db(name: String) -> Vec<RawDocumentBuf> {
