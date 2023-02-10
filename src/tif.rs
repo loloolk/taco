@@ -1,10 +1,5 @@
-#![allow(unused_variables)]
-#![allow(unused_imports)]
-#![allow(unused_macros)]
-#![allow(dead_code)]
-
 use crate::db::{post_project_to_db, get_project_from_db};
-use std::io::{self, Write, Read};
+use std::io::{Write};
 use std::fs::{File, create_dir};
 
 macro_rules! matcher {
@@ -37,8 +32,8 @@ pub struct Subcommand { // like methab
     pub path: String
 }
 
-pub fn init(command: Subcommand) -> i32 {
-    let path = command.path;
+pub fn init(command: &Subcommand) -> i32 {
+    let path = &command.path;
 
     let mut file = File::create(path.clone() + "/taco.toml").unwrap();
     file.write_all(CONFIG).unwrap();
@@ -51,24 +46,24 @@ pub fn init(command: Subcommand) -> i32 {
     0
 }
 
-pub fn new(command: Subcommand) -> i32 {
-    let path = command.path + "/" + command.args.get(2).expect("Error: No name given.");
+pub fn new(command: &Subcommand) -> i32 {
+    let path = format!("{}/{}", command.path, command.args.get(2).expect("Error: No name given."));
 
-    create_dir(path.clone()).expect("Error: Could not create directory.");
+    create_dir(&path).expect("Error: Could not create directory.");
 
-    let mut file = File::create(path.clone() + "/" + "taco.toml").unwrap();
+    let mut file = File::create(format!("{path}/taco.toml")).unwrap();
     file.write_all(CONFIG).unwrap();
 
-    create_dir(path.clone() + "/source").expect("Error: Could not create sourc directory.");
-    file = File::create(path.clone() + "/source/main.cpp").unwrap();
+    create_dir(format!("{path}/source")).expect("Error: Could not create source directory.");
+    file = File::create(format!("{path}/source/main.cpp")).unwrap();
     file.write_all(CPP).unwrap();
     0
 }
 
-pub fn clean(command: Subcommand) -> i32 {
+pub fn clean(command: &Subcommand) -> i32 {
     use toml::{Value, from_str};
     
-    let taco = command.path.clone() + "/taco.toml";
+    let taco = format!("{}/taco.toml", command.path);
     let file = std::fs::read_to_string(taco).unwrap();
 
     let x: Value = from_str(&file).unwrap();
@@ -101,57 +96,63 @@ pub fn clean(command: Subcommand) -> i32 {
     0
 }
 
-pub fn add(command: Subcommand) -> i32 {
+pub fn add(command: &Subcommand) -> i32 {
     0
 }
 
-pub fn remove(command: Subcommand) -> i32 {
+pub fn remove(command: &Subcommand) -> i32 {
     0
 }
 
-pub async fn wrap(command: Subcommand) -> i32 {
+pub async fn wrap(command: &Subcommand) -> i32 {
     use toml::{Value, from_str};
     
-    let taco = command.path.clone() + "/taco.toml";
+    let taco = format!("{}/taco.toml", command.path);
     let file = std::fs::read_to_string(taco).unwrap();
 
     let x: Value = from_str(&file).unwrap();
 
     let package = x.get("package").unwrap();
 
+    let get = |name| package.get(name).unwrap().as_str().unwrap().to_string();
+
     match post_project_to_db(
-        package.get("name").unwrap().as_str().unwrap().to_string(),
-        package.get("version").unwrap().as_str().unwrap().to_string(),
-        package.get("authors").unwrap().as_array().unwrap().get(0).unwrap().as_str().unwrap().to_string(),
-        "a".to_string()
+        get("name"),
+        get("version"),
+        package.get("authors").unwrap().as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect(),
+        get("repo"),
     ).await {
         Ok(_) => (),
         Err(_) => panic!("Error: Could not post project to database.")
     };
-    
+
     0
 }
 
-pub fn run(command: Subcommand) ->i32 {
+pub async fn search(command: &Subcommand) ->i32 {
+    let remaining_args = command.args.clone().split_off(2).join(" ");
+    let docs = get_project_from_db(remaining_args).await;
+
+    for i in docs {
+        println!("{:?}: {:?}", i.get("name").unwrap(), i.get("version").unwrap());
+    }
+    0
+}
+
+pub fn run(command: &Subcommand) ->i32 {
     use std::process::Command;
     if command.args.len() < 3 {
         let output = Command::new("g++")
-            .arg(command.path.clone() + "/source/main.cpp")
-            .arg("-o")
-            .arg(command.path.clone() + "/source/main")
-            .output()
-            .expect("Error: Could not compile.").stdout;
+            .args([&format!("{}/source/main.cpp", command.path), "-o", &format!("{}/source/main", command.path)])
+            .output().expect("Error: Could not compile.").stdout;
         println!("{}", String::from_utf8_lossy(&output));
 
-        let output = Command::new(command.path.clone() + "/source/main.exe")
-            .output()
-            .expect("Error: Could not run.")
-            .stdout;
-    
+        let output = Command::new(format!("{}/source/main.exe", command.path))
+            .output().expect("Error: Could not run.").stdout;
         println!("{}", String::from_utf8_lossy(&output));
     }
     else {
-        let name: &std::string::String = command.args.get(2).unwrap();
+        let name: &String = command.args.get(2).unwrap();
 
         let remaining_args = command.args.clone().split_off(3);
 
@@ -164,19 +165,13 @@ pub fn run(command: Subcommand) ->i32 {
         }
 
         let output = Command::new("g++")
-            .arg(command.path.clone() + "/source/" + name)
+            .args([&format!("{}/source/{name}", command.path), "-o", &final_path])
             .args(&remaining_args)
-            .arg("-o")
-            .arg(&final_path)
-            .output()
-            .expect("Error: Could not compile.").stdout;
-
+            .output().expect("Error: Could not compile.").stdout;
         println!("{}", String::from_utf8_lossy(&output));
 
         let output = Command::new(&final_path)
-            .output()
-            .expect("Error: Could not run.")
-            .stdout;
+            .output().expect("Error: Could not run.").stdout;
         
         println!("{}", String::from_utf8_lossy(&output));
     };
@@ -184,7 +179,7 @@ pub fn run(command: Subcommand) ->i32 {
     0
 }
 
-pub fn help(command: Subcommand) -> i32 {
+pub fn help() -> i32 {
     println!(
         "
         How to Use:
