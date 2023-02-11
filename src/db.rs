@@ -1,18 +1,5 @@
 use mongodb::{bson::{doc, Document, RawDocumentBuf}, options::{ClientOptions, FindOptions}, Client, Database, Cursor};
 
-impl Iterator for Cursor<Document> {
-    type Item = Document;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.advance().unwrap() {
-            Some(self.current().clone())
-        }
-        else {
-            None
-        }
-    }
-}
-
 async fn connect_to_db() -> Database {
     let mut client_options = ClientOptions::parse(
         std::fs::read_to_string("../db.txt").unwrap().trim()
