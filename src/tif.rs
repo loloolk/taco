@@ -12,10 +12,10 @@ macro_rules! matcher {
 }
 
 const CONFIG: &[u8] = b"[package]
-name = \"taco\"
-version = \"0.1.0\"
-authors = [\"Taco Team\"]
-clean = []
+name = \"{}\"
+version = \"0.0.1\"
+authors = [\"\"]
+clean = [\"\"]
 
 [dependencies]
 ";
@@ -36,7 +36,7 @@ pub fn init(command: &Subcommand) -> i32 {
     let path = &command.path;
 
     let mut file = File::create(path.clone() + "/taco.toml").unwrap();
-    file.write_all(CONFIG).unwrap();
+    file.write_all(&format!(CONFIG, "main".to_string())).unwrap();
 
     matcher!( create_dir(path.clone() + "/source"), 
     (), panic!("Error: Could not create source directory."));
@@ -47,12 +47,13 @@ pub fn init(command: &Subcommand) -> i32 {
 }
 
 pub fn new(command: &Subcommand) -> i32 {
-    let path = format!("{}/{}", command.path, command.args.get(2).expect("Error: No name given."));
+    let name = command.args.get(2).expect("Error: No name given.");
+    let path = format!("{}/{}", command.path, name);
 
     create_dir(&path).expect("Error: Could not create directory.");
 
     let mut file = File::create(format!("{path}/taco.toml")).unwrap();
-    file.write_all(CONFIG).unwrap();
+    file.write_all(format!(CONFIG, name)).unwrap();
 
     create_dir(format!("{path}/source")).expect("Error: Could not create source directory.");
     file = File::create(format!("{path}/source/main.cpp")).unwrap();
