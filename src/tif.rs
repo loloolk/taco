@@ -136,11 +136,11 @@ pub async fn search(command: &Subcommand) ->i32 {
 
     for i in docs {
         println!("{:?}: {:?}", match i.get("name") {
-            Ok(Some(x)) => x,
+            Ok(Some(x)) => x.as_str().unwrap(),
             _ => panic!("Error: Could not get name.")
         },
         match i.get("version") {
-            Ok(Some(x)) => x,
+            Ok(Some(x)) => x.as_str().unwrap(),
             _ => panic!("Error: Could not get version.")
         });
     }
