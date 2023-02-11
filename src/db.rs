@@ -1,9 +1,21 @@
-use mongodb::{bson::{doc, Document, RawDocumentBuf}, options::{ClientOptions, FindOptions}, Client, Database};
+use mongodb::{bson::{doc, Document, RawDocumentBuf}, options::{ClientOptions, FindOptions}, Client, Database, Cursor};
 
+impl Iterator for Cursor<Document> {
+    type Item = Document;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.advance().unwrap() {
+            Some(self.current().clone())
+        }
+        else {
+            None
+        }
+    }
+}
 
 async fn connect_to_db() -> Database {
     let mut client_options = ClientOptions::parse(
-        std::fs::read_to_string("./DBURL.txt").unwrap().trim()
+        std::fs::read_to_string("../db.txt").unwrap().trim()
     ).await.unwrap();
     client_options.app_name = Some("TacoDB".to_string());
     let client = Client::with_options(client_options).unwrap();
@@ -26,6 +38,7 @@ pub async fn get_project_from_db(name: String) -> Vec<RawDocumentBuf> {
     let collection = db.collection::<Document>("UnverifiedProjects");
 
     let find_options = FindOptions::builder().sort(doc! { "name": 1 }).build();
+    
     let mut cursor = match collection.find(doc! { "name": name }, find_options).await {
         Ok(cursor) => cursor,
         Err(x) => panic!("{}", x)
@@ -34,7 +47,7 @@ pub async fn get_project_from_db(name: String) -> Vec<RawDocumentBuf> {
     let mut docs = Vec::new();
 
     while cursor.advance().await.unwrap() {
-        docs.push(cursor.current().to_raw_document_buf());
+        docs.push(cursor.current());
     }
 
     docs

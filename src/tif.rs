@@ -135,7 +135,14 @@ pub async fn search(command: &Subcommand) ->i32 {
     let docs = get_project_from_db(remaining_args).await;
 
     for i in docs {
-        println!("{:?}: {:?}", i.get("name").unwrap(), i.get("version").unwrap());
+        println!("{:?}: {:?}", match i.get("name") {
+            Ok(Some(x)) => x,
+            _ => panic!("Error: Could not get name.")
+        },
+        match i.get("version") {
+            Ok(Some(x)) => x,
+            _ => panic!("Error: Could not get version.")
+        });
     }
     0
 }
