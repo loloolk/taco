@@ -1,4 +1,5 @@
-use mongodb::{bson::{doc, Document, RawDocumentBuf}, options::{ClientOptions, FindOptions}, Client, Database, Cursor};
+use mongodb::{bson::{doc, Document, RawDocumentBuf}, options::{ClientOptions, FindOptions}, Client, Database};
+
 
 async fn connect_to_db() -> Database {
     let mut client_options = ClientOptions::parse(
@@ -24,9 +25,7 @@ pub async fn get_project_from_db(name: String) -> Vec<RawDocumentBuf> {
     
     let collection = db.collection::<Document>("UnverifiedProjects");
 
-    let find_options = FindOptions::builder().sort(doc! { "name": 1 }).build();
-    
-    let mut cursor = match collection.find(doc! { "name": name }, find_options).await {
+    let mut cursor = match collection.find(doc! { "name": name }, FindOptions::builder().build()).await {
         Ok(cursor) => cursor,
         Err(x) => panic!("{}", x)
     };
@@ -34,7 +33,7 @@ pub async fn get_project_from_db(name: String) -> Vec<RawDocumentBuf> {
     let mut docs = Vec::new();
 
     while cursor.advance().await.unwrap() {
-        docs.push(cursor.current());
+        docs.push(cursor.current().to_raw_document_buf());
     }
 
     docs
