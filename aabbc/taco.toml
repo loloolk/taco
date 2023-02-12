@@ -1,8 +1,0 @@
-[package]
-name = "taco"
-version = "0.1.0"
-authors = ["loloolk", "methaballs"]
-repo = "https://github.com/loloolk/taco"
-clean = ["*.exe"]
-
-[dependencies]
