@@ -1,7 +1,6 @@
 use crate::db::{post_project_to_db, get_project_from_db};
 use std::io::{Write};
 use std::fs::{File, create_dir};
-use crate::Subcommand;
 
 #[derive(Debug, Clone)]
 pub struct ProjectData {
@@ -146,7 +145,7 @@ pub fn remove(command: &Subcommand) -> i32 {
 }
 
 pub async fn wrap(command: &Subcommand) -> i32 {
-    let project = load_toml_project_data(command.path.clone());
+    let project = load_toml_project_data(format!("{}", command.dir_path));
     
     match post_project_to_db(project).await {
         Ok(_) => (),

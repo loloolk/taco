@@ -1,12 +1,7 @@
 #![allow(unused_variables)]
 mod tif;
 mod db;
-
-#[derive(Debug, Clone)]
-pub struct Subcommand {
-    pub args: Vec<String>,
-    pub path: String
-}
+use tif::Subcommand;
 
 #[tokio::main]
 async fn main() {
