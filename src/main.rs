@@ -8,11 +8,13 @@ async fn main() {
     use std::env::args;
 
     let args: Vec<String> = args().collect();
-    let path = std::env::current_dir().unwrap().to_str().unwrap().to_string();
+    let dir_path = std::env::current_dir().unwrap().to_str().unwrap().to_string();
+    let exe_path = std::env::current_exe().unwrap().to_str().unwrap().to_string();
 
     let command: Subcommand = Subcommand {
         args: args,
-        path: path
+        dir_path: dir_path,
+        exe_path: exe_path
     };
 
     let error_code: i32 = {

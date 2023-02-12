@@ -2,14 +2,6 @@ use crate::db::{post_project_to_db, get_project_from_db};
 use std::io::{Write};
 use std::fs::{File, create_dir};
 
-macro_rules! matcher {
-    ($match:expr, $ok:expr, $err:expr) => {
-        match $match {
-            Ok(_) => $ok,
-            Err(_) => $err
-        }
-    };
-}
 
 const CONFIG: &[u8] = b"[package]
 name = \"main\"
@@ -29,33 +21,44 @@ int main() {
 #[derive(Debug, Clone)]
 pub struct Subcommand {
     pub args: Vec<String>,
-    pub path: String
+    pub dir_path: String,
+    pub exe_path: String,
 }
 
 pub fn init(command: &Subcommand) -> i32 {
-    let path = &command.path;
-
-    let mut file = File::create(path.clone() + "/taco.toml").unwrap();
+    // Make the taco.toml file
+    let mut file = File::create(format!("{}/taco.toml", command.dir_path)).unwrap();
     file.write_all(CONFIG).unwrap();
 
-    matcher!( create_dir(path.clone() + "/source"), 
-    (), panic!("Error: Could not create source directory."));
+    // Make the source directory
+    create_dir(format!("{}/source", command.dir_path))
+    .expect("Error: Could not create source directory.");
 
-    file = File::create(path.clone() + "/source/main.cpp").unwrap();
+    // Make the main.cpp file
+    file = File::create(format!("{}/source/main.cpp", command.dir_path)).unwrap();
     file.write_all(CPP).unwrap();
+
     0
 }
 
 pub fn new(command: &Subcommand) -> i32 {
-    let name = command.args.get(2).expect("Error: No name given.");
-    let path = format!("{}/{}", command.path, name);
+    // Get the name of the project
+    let name = command.args.get(2)
+    .expect("Error: No name given.");
+    let path = format!("{}/{}", command.dir_path, name);
 
+    // Make the project directory
     create_dir(&path).expect("Error: Could not create directory.");
 
+    // Make the taco.toml file
     let mut file = File::create(format!("{path}/taco.toml")).unwrap();
     file.write_all(CONFIG).unwrap();
 
-    create_dir(format!("{path}/source")).expect("Error: Could not create source directory.");
+    // Make the source directory
+    create_dir(format!("{path}/source"))
+    .expect("Error: Could not create source directory.");
+
+    // Make the main.cpp file
     file = File::create(format!("{path}/source/main.cpp")).unwrap();
     file.write_all(CPP).unwrap();
     0
@@ -64,7 +67,7 @@ pub fn new(command: &Subcommand) -> i32 {
 pub fn clean(command: &Subcommand) -> i32 {
     use toml::{Value, from_str};
     
-    let taco = format!("{}/taco.toml", command.path);
+    let taco = format!("{}/taco.toml", command.dir_path);
     let file = std::fs::read_to_string(taco).unwrap();
 
     let x: Value = from_str(&file).unwrap();
@@ -72,7 +75,7 @@ pub fn clean(command: &Subcommand) -> i32 {
     let clean = x.get("package").unwrap().get("clean").unwrap().as_array().unwrap();
 
     for i in clean {
-        let mut files = std::fs::read_dir(command.path.clone() + "/source").unwrap();
+        let mut files = std::fs::read_dir(format!("{}/source", command.dir_path)).unwrap();
         let i = i.as_str().unwrap();
         
         while let Some(Ok(file)) = files.next() {
@@ -80,7 +83,9 @@ pub fn clean(command: &Subcommand) -> i32 {
             let Some(file_name) = file_name.to_str() else { continue; };
             let file_path = file.path();
 
-            if i.starts_with("*.") && file_name.ends_with(&i[2..]) {
+            if i.starts_with("*.") && file_name.ends_with(
+                &i[2..]
+            ) {
                 std::fs::remove_file(file_path).unwrap();
             }
             else if i.ends_with(".*") && file_name.starts_with(
@@ -107,11 +112,9 @@ pub fn remove(command: &Subcommand) -> i32 {
 
 pub async fn wrap(command: &Subcommand) -> i32 {
     use toml::{Value, from_str};
-    
-    let taco = format!("{}/taco.toml", command.path);
-    let file = std::fs::read_to_string(taco).unwrap();
+    let file = std::fs::read_to_string(format!("{}/taco.toml", command.dir_path)).unwrap();
 
-    let x: Value = from_str(&file).unwrap();
+    let x: Value = from_str(&file).unwrap(); // turn to table
 
     let package = x.get("package").unwrap();
 
@@ -151,11 +154,15 @@ pub fn run(command: &Subcommand) ->i32 {
     use std::process::Command;
     if command.args.len() < 3 {
         let output = Command::new("g++")
-            .args([&format!("{}/source/main.cpp", command.path), "-o", &format!("{}/source/main", command.path)])
+            .args([
+                &format!("{}/source/main.cpp", command.dir_path),
+                "-o",
+                &format!("{}/source/main", command.dir_path)
+            ])
             .output().expect("Error: Could not compile.").stdout;
         println!("{}", String::from_utf8_lossy(&output));
 
-        let output = Command::new(format!("{}/source/main.exe", command.path))
+        let output = Command::new(format!("{}/source/main.exe", command.dir_path))
             .output().expect("Error: Could not run.").stdout;
         println!("{}", String::from_utf8_lossy(&output));
     }
@@ -164,7 +171,7 @@ pub fn run(command: &Subcommand) ->i32 {
 
         let remaining_args = command.args.clone().split_off(3);
 
-        let final_path = command.path.clone() + "/source/" + name.trim_end_matches(".cpp");
+        let final_path = command.dir_path.clone() + "/source/" + name.trim_end_matches(".cpp");
 
         for i in 0..remaining_args.len() {
             if remaining_args[i].starts_with("-o") {
@@ -173,7 +180,7 @@ pub fn run(command: &Subcommand) ->i32 {
         }
 
         let output = Command::new("g++")
-            .args([&format!("{}/source/{name}", command.path), "-o", &final_path])
+            .args([&format!("{}/source/{name}", command.dir_path), "-o", &final_path])
             .args(&remaining_args)
             .output().expect("Error: Could not compile.").stdout;
         println!("{}", String::from_utf8_lossy(&output));
