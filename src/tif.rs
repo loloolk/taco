@@ -1,14 +1,41 @@
 use crate::db::{post_project_to_db, get_project_from_db};
 use std::io::{Write};
 use std::fs::{File, create_dir};
+use crate::Subcommand;
 
-macro_rules! matcher {
-    ($match:expr, $ok:expr, $err:expr) => {
-        match $match {
-            Ok(_) => $ok,
-            Err(_) => $err
+#[derive(Debug, Clone)]
+pub struct ProjectData {
+    pub name: String,
+    pub version: String,
+    pub authors: Vec<String>,
+    pub repo: String
+}
+
+impl ProjectData {
+    fn new(name: String, version: String, authors: Vec<String>, repo: String) -> ProjectData {
+        ProjectData {
+            name: name,
+            version: version,
+            authors: authors,
+            repo: repo
         }
-    };
+    }
+}
+
+fn load_toml_project_data(path: String) -> ProjectData {
+    use toml::{Table};
+    
+    let taco_file = format!("{}/taco.toml", path);
+    let file_contents = std::fs::read_to_string(taco_file).unwrap();
+
+    let x: Table = file_contents.parse::<Table>().unwrap();
+    
+    ProjectData::new(
+        x["package"]["name"].as_str().unwrap().to_string(),
+        x["package"]["version"].as_str().unwrap().to_string(),
+        x["package"]["authors"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect(),
+        x["package"]["repo"].as_str().unwrap().to_string()
+    )
 }
 
 const CONFIG: &[u8] = b"[package]
@@ -26,20 +53,13 @@ int main() {
     return 0;
 }";
 
-#[derive(Debug, Clone)]
-pub struct Subcommand {
-    pub args: Vec<String>,
-    pub path: String
-}
-
 pub fn init(command: &Subcommand) -> i32 {
     let path = &command.path;
 
     let mut file = File::create(path.clone() + "/taco.toml").unwrap();
     file.write_all(CONFIG).unwrap();
 
-    matcher!( create_dir(path.clone() + "/source"), 
-    (), panic!("Error: Could not create source directory."));
+    create_dir(path.clone() + "/source").expect("Error: Could not create source directory.");
 
     file = File::create(path.clone() + "/source/main.cpp").unwrap();
     file.write_all(CPP).unwrap();
@@ -106,23 +126,9 @@ pub fn remove(command: &Subcommand) -> i32 {
 }
 
 pub async fn wrap(command: &Subcommand) -> i32 {
-    use toml::{Value, from_str};
+    let project = load_toml_project_data(command.path.clone());
     
-    let taco = format!("{}/taco.toml", command.path);
-    let file = std::fs::read_to_string(taco).unwrap();
-
-    let x: Value = from_str(&file).unwrap();
-
-    let package = x.get("package").unwrap();
-
-    let get = |name| package.get(name).unwrap().as_str().unwrap().to_string();
-
-    match post_project_to_db(
-        get("name"),
-        get("version"),
-        package.get("authors").unwrap().as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect(),
-        get("repo"),
-    ).await {
+    match post_project_to_db(project).await {
         Ok(_) => (),
         Err(x) => panic!("Error: {}", x)
     };
@@ -135,7 +141,7 @@ pub async fn search(command: &Subcommand) ->i32 {
     let docs = get_project_from_db(remaining_args).await;
 
     for i in docs {
-        println!("{:?}: {:?}", match i.get("name") {
+        println!("{}: {}", match i.get("name") {
             Ok(Some(x)) => x.as_str().unwrap(),
             _ => panic!("Error: Could not get name.")
         },
@@ -189,8 +195,7 @@ pub fn run(command: &Subcommand) ->i32 {
 
 pub fn help() -> i32 {
     println!(
-        "
-        How to Use:
+        "How to Use:
         taco <command> [args]
         
         <commands>:

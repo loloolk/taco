@@ -1,5 +1,6 @@
+#![allow(dead_code)]
 use mongodb::{bson::{doc, Document, RawDocumentBuf}, options::{ClientOptions, FindOptions}, Client, Database};
-
+use crate::tif::ProjectData;
 
 async fn connect_to_db() -> Database {
     let mut client_options = ClientOptions::parse(
@@ -11,11 +12,11 @@ async fn connect_to_db() -> Database {
     db
 }
 
-pub async fn post_project_to_db(name: String, version: String, authors: Vec<String>, repo: String) -> mongodb::error::Result<()> {
+pub async fn post_project_to_db(project: ProjectData) -> mongodb::error::Result<()> {
     let db = connect_to_db().await;
     let collection = db.collection::<Document>("UnverifiedProjects");
     
-    let doc = doc! { "name": name, "version": version, "authors": authors, "repo": repo };
+    let doc = doc! { "name": project.name, "version": project.version, "authors": project.authors, "repo": project.repo };
 
     collection.insert_one(doc, None).await.map(|_|())
 }
@@ -25,7 +26,9 @@ pub async fn get_project_from_db(name: String) -> Vec<RawDocumentBuf> {
     
     let collection = db.collection::<Document>("UnverifiedProjects");
 
-    let mut cursor = match collection.find(doc! { "name": name }, FindOptions::builder().build()).await {
+    let options = FindOptions::builder().limit(10).build();
+
+    let mut cursor = match collection.find(doc! { "name": name }, options).await {
         Ok(cursor) => cursor,
         Err(x) => panic!("{}", x)
     };
@@ -37,4 +40,26 @@ pub async fn get_project_from_db(name: String) -> Vec<RawDocumentBuf> {
     }
 
     docs
+}
+
+pub async fn get_exact_copy_from_db(project: ProjectData) -> RawDocumentBuf {
+    let db = connect_to_db().await;
+    
+    let collection = db.collection::<Document>("UnverifiedProjects");
+
+    let options = FindOptions::builder().limit(10).build();
+
+    let cursor = 
+    match collection.find(
+        doc! { 
+            "name": project.name, 
+            "version": project.version, 
+            "authors": project.authors, 
+            "repo": project.repo 
+        }, options).await {
+        Ok(cursor) => cursor,
+        Err(x) => panic!("{}", x)
+    };
+
+    cursor.current().to_raw_document_buf()
 }
