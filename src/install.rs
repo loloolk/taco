@@ -25,20 +25,13 @@ fn install() -> i32 {
         .expect("failed to execute process");
 
 
-    matcher!(create_dir(this_dir.clone() + "/bin"), (), panic!("Error: Could not create bin directory."));
-    matcher!(create_dir(this_dir.clone() + "/lib"), (), panic!("Error: Could not create lib directory."));
-    matcher!(create_dir(this_dir.clone() + "/include"), (), panic!("Error: Could not create include directory."));
+    create_dir(format!("{}/bin", this_dir)).expect("Error: Could not create bin directory.");
+    create_dir(format!("{}/lib", this_dir)).expect("Error: Could not create lib directory.");
+    create_dir(format!("{}/include", this_dir)).expect("Error: Could not create include directory.");
     
     0
 }
 
 fn main() {
     install();
-
-    // use std::{thread, time};
-    // let s = time::Duration::from_secs(10);
-    // thread::sleep(s);
 }
-
-//q: what do surrealQL files end in?
-//a: .srl

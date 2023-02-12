@@ -2,6 +2,8 @@ use crate::db::{post_project_to_db, get_project_from_db};
 use std::io::{Write};
 use std::fs::{File, create_dir};
 
+//-----------------------------------------------------------------------------------------------
+
 #[derive(Debug, Clone)]
 pub struct ProjectData {
     pub name: String,
@@ -37,6 +39,8 @@ fn load_toml_project_data(path: String) -> ProjectData {
     )
 }
 
+//-----------------------------------------------------------------------------------------------
+
 const CONFIG: &[u8] = b"[package]
 name = \"main\"
 version = \"0.0.1\"
@@ -58,6 +62,8 @@ pub struct Subcommand {
     pub dir_path: String,
     pub exe_path: String,
 }
+
+//-----------------------------------------------------------------------------------------------
 
 pub fn init(command: &Subcommand) -> i32 {
     // Make the taco.toml file
@@ -95,6 +101,7 @@ pub fn new(command: &Subcommand) -> i32 {
     // Make the main.cpp file
     file = File::create(format!("{path}/source/main.cpp")).unwrap();
     file.write_all(CPP).unwrap();
+
     0
 }
 
@@ -172,7 +179,7 @@ pub async fn search(command: &Subcommand) ->i32 {
     0
 }
 
-pub fn run(command: &Subcommand) ->i32 {
+pub fn run(command: &Subcommand) ->i32 { // Change when they are included (as opposed to the command)
     use std::process::Command;
     if command.args.len() < 3 {
         let output = Command::new("g++")
