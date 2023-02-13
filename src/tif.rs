@@ -1,4 +1,4 @@
-use crate::db::{post_project_to_db, get_project_from_db};
+use crate::db::*;
 use std::io::{Write};
 use std::fs::{File, create_dir};
 
@@ -39,6 +39,16 @@ fn load_toml_project_data(path: String) -> ProjectData {
     )
 }
 
+fn generate_PID() -> String {
+    use rand::{Rng};
+    let mut rng = rand::thread_rng();
+    let mut pid = String::new();
+    for _ in 0..10 {
+        pid.push(rng.gen_range(0..=9).to_string().chars().next().unwrap());
+    }
+    pid
+}
+
 //-----------------------------------------------------------------------------------------------
 
 const CONFIG: &[u8] = b"[package]
@@ -65,7 +75,7 @@ pub struct Subcommand {
 
 //-----------------------------------------------------------------------------------------------
 
-pub fn init(command: &Subcommand) -> i32 {
+pub async fn init(command: &Subcommand) -> i32 {
     // Make the taco.toml file
     let mut file = File::create(format!("{}/taco.toml", command.dir_path)).unwrap();
     file.write_all(CONFIG).unwrap();
@@ -77,6 +87,14 @@ pub fn init(command: &Subcommand) -> i32 {
     // Make the main.cpp file
     file = File::create(format!("{}/source/main.cpp", command.dir_path)).unwrap();
     file.write_all(CPP).unwrap();
+
+    // Add the project to the /instances file, and give it it's unique ID
+    let pid = generate_PID();
+    while update_uid_database(pid.clone()).await == 1 {
+        let pid = generate_PID();
+    }
+
+    let mut file = File::create(format!("{}/instances/{}", command.exe_path, pid)).unwrap();
 
     0
 }

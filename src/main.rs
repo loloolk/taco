@@ -17,7 +17,7 @@ async fn main() {
         exe_path: exe_path
     };
 
-    let error_code: i32 = {
+    let error_code: i32 = { 
         if command.args.len() == 1 {
             tif::help()
         }  

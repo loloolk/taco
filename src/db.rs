@@ -63,3 +63,24 @@ pub async fn get_exact_copy_from_db(project: ProjectData) -> RawDocumentBuf {
 
     cursor.current().to_raw_document_buf()
 }
+
+pub async fn update_uid_database(uid: String) -> i32 {
+    let db = connect_to_db().await;
+    let collection = db.collection::<Document>("UID");
+
+    // Check if UID is already in database, if it is, return 1
+    let options = FindOptions::builder().limit(1).build();
+    let mut cursor = match collection.find(doc! { "uid": &uid }, options).await {
+        Ok(cursor) => cursor,
+        Err(x) => panic!("{}", x)
+    };
+    if cursor.advance().await.unwrap() {
+        return 1;
+    }
+    
+    let doc = doc! { "uid": uid };
+
+    collection.insert_one(doc, None).await.map(|_|0).unwrap();
+
+    0
+}
