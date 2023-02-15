@@ -4,7 +4,7 @@ use crate::tif::ProjectData;
 
 async fn connect_to_db() -> Database {
     let mut client_options = ClientOptions::parse(
-        std::fs::read_to_string("../db.txt").unwrap().trim()
+        std::fs::read_to_string("C:\\Users\\marcb_xqarsni\\Desktop\\taco\\db.txt").unwrap().trim() // fix so tht it's global
     ).await.unwrap();
     client_options.app_name = Some("TacoDB".to_string());
     let client = Client::with_options(client_options).unwrap();
@@ -21,14 +21,14 @@ pub async fn post_project_to_db(project: ProjectData) -> mongodb::error::Result<
     collection.insert_one(doc, None).await.map(|_|())
 }
 
-pub async fn get_project_from_db(name: String) -> Vec<RawDocumentBuf> {
+pub async fn get_project_from_db(query: Document) -> Vec<RawDocumentBuf> {
     let db = connect_to_db().await;
     
     let collection = db.collection::<Document>("UnverifiedProjects");
 
     let options = FindOptions::builder().limit(10).build();
 
-    let mut cursor = match collection.find(doc! { "name": name }, options).await {
+    let mut cursor = match collection.find(query, options).await {
         Ok(cursor) => cursor,
         Err(x) => panic!("{}", x)
     };
@@ -64,7 +64,7 @@ pub async fn get_exact_copy_from_db(project: ProjectData) -> RawDocumentBuf {
     cursor.current().to_raw_document_buf()
 }
 
-pub async fn update_uid_database(uid: String) -> i32 {
+pub async fn update_uid_database(uid: &String) -> i32 {
     let db = connect_to_db().await;
     let collection = db.collection::<Document>("UID");
 

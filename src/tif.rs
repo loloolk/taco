@@ -1,6 +1,7 @@
 use crate::db::*;
 use std::io::{Write};
 use std::fs::{File, create_dir};
+use mongodb::bson::{doc};
 
 //-----------------------------------------------------------------------------------------------
 
@@ -39,7 +40,7 @@ fn load_toml_project_data(path: String) -> ProjectData {
     )
 }
 
-fn generate_PID() -> String {
+fn generate_pid() -> String {
     use rand::{Rng};
     let mut rng = rand::thread_rng();
     let mut pid = String::new();
@@ -80,6 +81,14 @@ pub async fn init(command: &Subcommand) -> i32 {
     let mut file = File::create(format!("{}/taco.toml", command.dir_path)).unwrap();
     file.write_all(CONFIG).unwrap();
 
+    // Make the taco.lock file
+    file = File::create(format!("{}/taco.lock", command.dir_path)).unwrap();
+    let pid = generate_pid();
+    while update_uid_database(&pid).await == 1 {
+        let pid = generate_pid();
+    }
+    file.write_all(format!("pid = \"{}\"", pid).as_bytes()).unwrap();
+
     // Make the source directory
     create_dir(format!("{}/source", command.dir_path))
     .expect("Error: Could not create source directory.");
@@ -88,18 +97,10 @@ pub async fn init(command: &Subcommand) -> i32 {
     file = File::create(format!("{}/source/main.cpp", command.dir_path)).unwrap();
     file.write_all(CPP).unwrap();
 
-    // Add the project to the /instances file, and give it it's unique ID
-    let pid = generate_PID();
-    while update_uid_database(pid.clone()).await == 1 {
-        let pid = generate_PID();
-    }
-
-    let mut file = File::create(format!("{}/instances/{}", command.exe_path, pid)).unwrap();
-
     0
 }
 
-pub fn new(command: &Subcommand) -> i32 {
+pub async fn new(command: &Subcommand) -> i32 {
     // Get the name of the project
     let name = command.args.get(2)
     .expect("Error: No name given.");
@@ -111,6 +112,14 @@ pub fn new(command: &Subcommand) -> i32 {
     // Make the taco.toml file
     let mut file = File::create(format!("{path}/taco.toml")).unwrap();
     file.write_all(CONFIG).unwrap();
+
+    // Make the taco.lock file
+    file = File::create(format!("{path}/taco.lock")).unwrap();
+    let pid = generate_pid();
+    while update_uid_database(&pid).await == 1 {
+        let pid = generate_pid();
+    }
+    file.write_all(format!("pid = \"{}\"", pid).as_bytes()).unwrap();
 
     // Make the source directory
     create_dir(format!("{path}/source"))
@@ -182,7 +191,7 @@ pub async fn wrap(command: &Subcommand) -> i32 {
 
 pub async fn search(command: &Subcommand) ->i32 {
     let remaining_args = command.args.clone().split_off(2).join(" ");
-    let docs = get_project_from_db(remaining_args).await;
+    let docs = get_project_from_db(doc! { "name": remaining_args }).await;
 
     for i in docs {
         println!("{}: {}", match i.get("name") {
@@ -205,6 +214,10 @@ pub fn run(command: &Subcommand) ->i32 { // Change when they are included (as op
                 &format!("{}/source/main.cpp", command.dir_path),
                 "-o",
                 &format!("{}/source/main", command.dir_path)
+            ])
+            .args([
+                &format!("-I{}/include", command.exe_path),
+                &format!("-L{}/lib", command.exe_path),
             ])
             .output().expect("Error: Could not compile.").stdout;
         println!("{}", String::from_utf8_lossy(&output));
@@ -229,6 +242,10 @@ pub fn run(command: &Subcommand) ->i32 { // Change when they are included (as op
         let output = Command::new("g++")
             .args([&format!("{}/source/{name}", command.dir_path), "-o", &final_path])
             .args(&remaining_args)
+            .args([
+                &format!("-I{}/include", command.exe_path),
+                &format!("-L{}/lib", command.exe_path),
+            ])
             .output().expect("Error: Could not compile.").stdout;
         println!("{}", String::from_utf8_lossy(&output));
 

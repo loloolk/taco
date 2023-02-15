@@ -23,8 +23,8 @@ async fn main() {
         }  
         else { 
             match command.args[1].to_lowercase().as_str() {
-                "init" => tif::init(&command),
-                "new" => tif::new(&command),
+                "init" => tif::init(&command).await,
+                "new" => tif::new(&command).await,
                 "clean" => tif::clean(&command),
                 "wrap" => tif::wrap(&command).await,
                 "search" => tif::search(&command).await,
