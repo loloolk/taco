@@ -10,20 +10,23 @@ pub struct ProjectData {
     pub name: String,
     pub version: String,
     pub authors: Vec<String>,
-    pub repo: String
+    pub repo: String,
+    pub pid: String
 }
 
 impl ProjectData {
-    fn new(name: String, version: String, authors: Vec<String>, repo: String) -> ProjectData {
+    fn new(name: String, version: String, authors: Vec<String>, repo: String, pid: String) -> ProjectData {
         ProjectData {
             name: name,
             version: version,
             authors: authors,
-            repo: repo
+            repo: repo,
+            pid: generate_pid() // change to find pid in db
         }
     }
 }
 
+// add pid to project data
 fn load_toml_project_data(path: String) -> ProjectData {
     use toml::{Table};
     
@@ -36,7 +39,8 @@ fn load_toml_project_data(path: String) -> ProjectData {
         x["package"]["name"].as_str().unwrap().to_string(),
         x["package"]["version"].as_str().unwrap().to_string(),
         x["package"]["authors"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect(),
-        x["package"]["repo"].as_str().unwrap().to_string()
+        x["package"]["repo"].as_str().unwrap().to_string(),
+        get_pid(path)
     )
 }
 
@@ -44,10 +48,20 @@ fn generate_pid() -> String {
     use rand::{Rng};
     let mut rng = rand::thread_rng();
     let mut pid = String::new();
-    for _ in 0..10 {
+    for _ in 0..20 {
         pid.push(rng.gen_range(0..=9).to_string().chars().next().unwrap());
     }
     pid
+}
+
+fn get_pid(path: String) -> String {
+    use toml::{Table};
+
+
+    let taco_file = format!("{}/taco.toml", path);
+    let file_contents = std::fs::read_to_string(taco_file).unwrap();
+
+    return file_contents.parse::<Table>().unwrap()["pid"].as_str().unwrap().to_string();
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -81,11 +95,11 @@ pub async fn init(command: &Subcommand) -> i32 {
     let mut file = File::create(format!("{}/taco.toml", command.dir_path)).unwrap();
     file.write_all(CONFIG).unwrap();
 
-    // Make the taco.lock file
+    // Make the taco.lock file and th pid
     file = File::create(format!("{}/taco.lock", command.dir_path)).unwrap();
-    let pid = generate_pid();
-    while update_uid_database(&pid).await == 1 {
-        let pid = generate_pid();
+    let mut pid = generate_pid();
+    while pid_exists_check(&pid).await == 1 {
+        pid = generate_pid();
     }
     file.write_all(format!("pid = \"{}\"", pid).as_bytes()).unwrap();
 
@@ -115,9 +129,9 @@ pub async fn new(command: &Subcommand) -> i32 {
 
     // Make the taco.lock file
     file = File::create(format!("{path}/taco.lock")).unwrap();
-    let pid = generate_pid();
-    while update_uid_database(&pid).await == 1 {
-        let pid = generate_pid();
+    let mut pid = generate_pid();
+    while pid_exists_check(&pid).await == 1 {
+        pid = generate_pid();
     }
     file.write_all(format!("pid = \"{}\"", pid).as_bytes()).unwrap();
 
@@ -180,11 +194,16 @@ pub fn remove(command: &Subcommand) -> i32 {
 
 pub async fn wrap(command: &Subcommand) -> i32 {
     let project = load_toml_project_data(format!("{}", command.dir_path));
-    
-    match post_project_to_db(project).await {
-        Ok(_) => (),
-        Err(x) => panic!("Error: {}", x)
-    };
+
+    if pid_exists_check(&project.pid).await == 0 {
+        match post_project_to_db(project).await {
+            Ok(_) => (),
+            Err(x) => panic!("Error: {}", x)
+        };
+    }
+    else {
+        update_project_in_db(project).await.expect("Error: Could not update project in database.");
+    }
 
     0
 }
